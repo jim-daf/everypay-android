@@ -223,3 +223,39 @@ Everypay.getInstance(appContext).getEverypayApi().saveCard(new EverypayTokenRequ
 ```
 
 
+
+
+## Frequently asked questions
+
+### How do I pass `hmac`, `amount` and the other API parameters?
+
+The Android SDK does **not** compute HMAC signatures itself. HMAC is signed on
+your merchant server with your EveryPay API key, and the SDK only forwards the
+values it receives back from your server. The flow is:
+
+1. Your app calls **your own** merchant backend asking for payment parameters.
+   This is the part you implement in `MerchantApi` (see
+   `MerchantParamsRequestData` and `MerchantParamsResponseData`).
+2. Your backend calls EveryPay, computes the HMAC and returns the parameters,
+   including `amount`, `api_username`, `account_id`, `nonce`, `timestamp` and
+   `hmac`. Your backend is the only place that holds the EveryPay API secret.
+3. The SDK reads those parameters from `MerchantParamsResponseData` and uses
+   them to call EveryPay's `/payments/oneoff` endpoint via `EveryPayTokenStep`.
+4. The encrypted card token returned by EveryPay is handed back to your
+   merchant backend in `MerchantPaymentRequestData` for final confirmation.
+
+In short: the `amount` and HMAC do not belong in the app. They belong in the
+JSON body that your merchant server returns to the SDK at step 2. The example
+implementation in this repository assumes the same model.
+
+### Where do I plug in my own merchant API?
+
+Implement `MerchantApi` (and the matching `MerchantParamsRequestData` /
+`MerchantParamsResponseData`) and pass it to `EveryPaySession`. Everything
+else (card form, 3DS, token exchange) is driven by the SDK from the parameters
+your merchant API returns.
+
+### Test cards and sandbox
+
+Sandbox credentials are issued by EveryPay. Use them in the parameters your
+merchant server returns. The SDK does not need a separate "sandbox switch".
